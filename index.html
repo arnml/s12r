@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es-US">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s12r</title>
+    <link rel="stylesheet" href="index.css" />
+    <script type="module" src="/src/renderer.ts"></script>
+  </head>
+
+  <body>
+    <canvas id="bg-particles"></canvas>
+    <main class="app-container">
+      <header>
+        <h1>ScreenRecorder s12r</h1>
+      </header>
+
+      <div class="video-wrapper">
+        <video></video>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn" class="btn btn-primary" disabled>Start Recording</button>
+        <button id="stopBtn" class="btn btn-danger" disabled>Stop</button>
+      </div>
+
+      <div class="source-selection">
+        <button id="videoSelectBtn" class="btn btn-secondary">
+          Choose Video Source
+        </button>
+      </div>
+    </main>
+  </body>
+</html>
