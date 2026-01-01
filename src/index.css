@@ -150,6 +150,146 @@ video {
   border-color: #bdc1c6;
 }
 
+.settings-icon-btn {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100;
+  padding: 0.6rem !important;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* Floating Settings Modal */
+.settings-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.settings-modal.hidden {
+  display: none;
+}
+
+.settings-modal-content {
+  padding: 1.5rem;
+}
+
+.settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+}
+
+.settings-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.settings-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  color: var(--secondary-color);
+  cursor: pointer;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-close-btn:hover {
+  color: var(--text-color);
+  transform: scale(1.1);
+}
+
+.settings-form-floating {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-section-floating {
+  padding: 0;
+  border: none;
+  margin: 0;
+}
+
+.settings-section-floating h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.setting-row-floating {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.setting-row-floating label {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--secondary-color);
+}
+
+.setting-row-floating input,
+.setting-row-floating select {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  transition: all 0.15s ease;
+}
+
+.setting-row-floating input:focus,
+.setting-row-floating select:focus {
+  outline: none;
+  border-color: var(--text-color);
+  box-shadow: 0 0 0 2px rgba(32, 33, 36, 0.08);
+}
+
+.settings-actions-floating {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.settings-actions-floating .btn {
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+}
+
 /* Recording State */
 .recording .video-wrapper {
   box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.2);

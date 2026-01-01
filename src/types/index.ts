@@ -18,3 +18,20 @@ export interface FocusEventPayload {
   x: number; // absolute screen coordinates
   y: number; // absolute screen coordinates
 }
+
+export interface CaptureSourceInfo {
+  x: number; // Source offset X on screen
+  y: number; // Source offset Y on screen
+  width: number; // Capture width
+  height: number; // Capture height
+}
+
+export interface VideoMetadata {
+  width: number;
+  height: number;
+  fps: number;
+  duration: number; // seconds
+}
+
+// Re-export settings types
+export * from './settings';

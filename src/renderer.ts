@@ -27,7 +27,7 @@
  */
 
 import './index.css';
-import { ZoomEvent, FocusEventPayload } from './interfaces';
+import { ZoomEvent, FocusEventPayload, CaptureSourceInfo, AppSettings } from '@/types';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { ipcRenderer } = require('electron');
@@ -36,14 +36,44 @@ const videoElement = document.querySelector('video');
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
 const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
 const videoSelectBtn = document.getElementById('videoSelectBtn') as HTMLButtonElement;
+const settingsBtn = document.getElementById('settingsBtn') as HTMLButtonElement;
+const settingsModal = document.getElementById('settings-modal') as HTMLDivElement;
+const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
+const settingsForm = document.getElementById('settings-form') as HTMLFormElement;
+const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
 let mediaRecorder: MediaRecorder;
 const recordedChunks: any[] = [];
+
 videoSelectBtn.onclick = getVideoSources;
+settingsBtn.onclick = () => openSettingsModal();
+settingsCloseBtn.onclick = () => closeSettingsModal();
+settingsForm.onsubmit = (e) => handleSettingsSave(e);
+resetBtn.onclick = () => handleSettingsReset();
+
+// Close modal on ESC key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) {
+    closeSettingsModal();
+  }
+});
+
+// Close modal on background click
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettingsModal();
+  }
+});
+
+// Settings tracking
+let currentSettings: AppSettings | null = null;
 
 // Event tracking
 let recordedEvents: ZoomEvent[] = [];
 let recordingStartTime: number | null = null;
 const activeEvents: Map<string, { startTime: number, payload: FocusEventPayload }> = new Map();
+
+// Source tracking
+let currentSourceInfo: CaptureSourceInfo | null = null;
 
 // Get the available video sources
 async function getVideoSources() {
@@ -57,7 +87,7 @@ async function getVideoSources() {
   ipcRenderer.send('show-context-menu', options);
 }
 
-ipcRenderer.on('source-id-selected', async (event: any, sourceId: string) => {
+ipcRenderer.on('source-id-selected', async (_event: any, sourceId: string) => {
   videoSelectBtn.innerText = 'Source Selected';
   startBtn.disabled = false;
 
@@ -76,12 +106,33 @@ ipcRenderer.on('source-id-selected', async (event: any, sourceId: string) => {
   mediaRecorder.ondataavailable = handleDataAvailable;
   mediaRecorder.onstop = handleStop;
 
+  // Get video track dimensions to set source info
+  const videoTrack = stream.getVideoTracks()[0];
+  if (videoTrack) {
+    const settings = videoTrack.getSettings();
+    currentSourceInfo = {
+      x: 0,
+      y: 0,
+      width: settings.width || 1920,
+      height: settings.height || 1080
+    };
+    console.log('Capture source info:', currentSourceInfo);
+  } else {
+    // Fallback if we can't get video track settings
+    currentSourceInfo = {
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080
+    };
+  }
+
   videoElement.srcObject = stream;
   videoElement.play();
 });
 
 // start button logic
-startBtn.onclick = e => {
+startBtn.onclick = _e => {
   mediaRecorder.start();
   startBtn.classList.add('is-recording');
   startBtn.innerText = 'Recording';
@@ -99,7 +150,7 @@ startBtn.onclick = e => {
 };
 
 // stop button logic
-stopBtn.onclick = e => {
+stopBtn.onclick = _e => {
   // Notify main process to stop event tracking FIRST
   ipcRenderer.send('recording-stopped');
   
@@ -121,7 +172,9 @@ stopBtn.onclick = e => {
       duration: duration,
       x: event.payload.x,
       y: event.payload.y,
-      zoomLevel: eventType === 'typing' ? 1.5 : 2.0 // Typing: 1.5x, Dwell: 2.0x
+      zoomLevel: eventType === 'typing'
+        ? (currentSettings?.typingZoomLevel ?? 1.5)
+        : (currentSettings?.dwellZoomLevel ?? 2.0)
     });
   }
   activeEvents.clear();
@@ -137,19 +190,29 @@ function handleDataAvailable(e: any) {
 // save the video file on stop
 async function handleStop() {
   const blob = new Blob(recordedChunks, { type: 'video/webm' });
-  
+
   // Convert blob to ArrayBuffer for IPC transfer
   const arrayBuffer = await blob.arrayBuffer();
-  
+
   console.log('Video data ready, size:', arrayBuffer.byteLength);
   console.log('Recorded events:', recordedEvents);
-  
+  console.log('Source info:', currentSourceInfo);
+
+  // Use current source info or fallback to default
+  const sourceInfo: CaptureSourceInfo = currentSourceInfo || {
+    x: 0,
+    y: 0,
+    width: 1920,
+    height: 1080
+  };
+
   // Send to main process for file saving and FFmpeg processing
-  ipcRenderer.send('save-and-process-video', { 
-    videoData: arrayBuffer, 
-    events: recordedEvents 
+  ipcRenderer.send('save-and-process-video', {
+    videoData: arrayBuffer,
+    events: recordedEvents,
+    sourceInfo
   });
-  
+
   // Clear recorded chunks
   recordedChunks.length = 0;
 }
@@ -271,7 +334,9 @@ ipcRenderer.on('focus-event-end', (event: any, data: { type: 'dwell' | 'typing' 
         duration: duration,
         x: activeEvent.payload.x,
         y: activeEvent.payload.y,
-        zoomLevel: eventType === 'typing' ? 1.5 : 2.0 // Typing: 1.5x, Dwell: 2.0x
+        zoomLevel: eventType === 'typing'
+          ? (currentSettings?.typingZoomLevel ?? 1.5)
+          : (currentSettings?.dwellZoomLevel ?? 2.0)
       });
       activeEvents.delete(key);
     }
@@ -293,3 +358,111 @@ ipcRenderer.on('video-error', (event: any, data: { error: string, filePath: stri
   console.error('Video processing error:', data);
   alert(`Error processing video: ${data.error}`);
 });
+
+// Settings Modal Functions
+function openSettingsModal() {
+  if (currentSettings) {
+    populateSettingsForm(currentSettings);
+  }
+  settingsModal.classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.add('hidden');
+}
+
+function populateSettingsForm(settings: AppSettings) {
+  (document.getElementById('dwellThresholdPx') as HTMLInputElement).value = String(settings.dwellThresholdPx);
+  (document.getElementById('dwellTimeMs') as HTMLInputElement).value = String(settings.dwellTimeMs);
+  (document.getElementById('typingGapMs') as HTMLInputElement).value = String(settings.typingGapMs);
+  (document.getElementById('typingTriggerMs') as HTMLInputElement).value = String(settings.typingTriggerMs);
+  (document.getElementById('typingZoomLevel') as HTMLInputElement).value = String(settings.typingZoomLevel);
+  (document.getElementById('dwellZoomLevel') as HTMLInputElement).value = String(settings.dwellZoomLevel);
+  (document.getElementById('transitionStyle') as HTMLSelectElement).value = settings.transitionStyle;
+  (document.getElementById('transitionDurationMs') as HTMLInputElement).value = String(settings.transitionDurationMs);
+  (document.getElementById('minEventDurationMs') as HTMLInputElement).value = String(settings.minEventDurationMs);
+}
+
+async function handleSettingsSave(e: Event) {
+  e.preventDefault();
+  const formData = new FormData(settingsForm);
+
+  const settings: AppSettings = {
+    dwellThresholdPx: Number(formData.get('dwellThresholdPx')),
+    dwellTimeMs: Number(formData.get('dwellTimeMs')),
+    typingGapMs: Number(formData.get('typingGapMs')),
+    typingTriggerMs: Number(formData.get('typingTriggerMs')),
+    typingZoomLevel: Number(formData.get('typingZoomLevel')),
+    dwellZoomLevel: Number(formData.get('dwellZoomLevel')),
+    transitionStyle: formData.get('transitionStyle') as 'eased' | 'linear',
+    transitionDurationMs: Number(formData.get('transitionDurationMs')),
+    minEventDurationMs: Number(formData.get('minEventDurationMs'))
+  };
+
+  try {
+    await ipcRenderer.invoke('settings-save', settings);
+    currentSettings = settings;
+    closeSettingsModal();
+    console.log('Settings saved successfully');
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+    const errorMsg = document.getElementById('error-message') as HTMLDivElement;
+    errorMsg.textContent = 'Failed to save settings';
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 3000);
+  }
+}
+
+async function handleSettingsReset() {
+  try {
+    await ipcRenderer.invoke('settings-reset');
+    // Reload settings after reset
+    currentSettings = await ipcRenderer.invoke('settings-get');
+    populateSettingsForm(currentSettings!);
+    const successMsg = document.getElementById('success-message') as HTMLDivElement;
+    successMsg.textContent = 'Settings reset to defaults';
+    successMsg.classList.remove('hidden');
+    setTimeout(() => successMsg.classList.add('hidden'), 3000);
+  } catch (error) {
+    console.error('Failed to reset settings:', error);
+    const errorMsg = document.getElementById('error-message') as HTMLDivElement;
+    errorMsg.textContent = 'Failed to reset settings';
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 3000);
+  }
+}
+
+// Load settings on startup
+async function loadSettings() {
+  try {
+    currentSettings = await ipcRenderer.invoke('settings-get');
+    console.log('Settings loaded:', currentSettings);
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+    // Use defaults if loading fails
+    currentSettings = null;
+  }
+}
+
+// Listen for settings updates from main process
+ipcRenderer.on('settings-updated', (_event: any, settings: AppSettings) => {
+  currentSettings = settings;
+  console.log('Settings updated:', settings);
+});
+
+// Handle recording state to disable/enable settings button
+ipcRenderer.on('recording-state', (_event: any, isRecording: boolean) => {
+  settingsBtn.disabled = isRecording;
+});
+
+// Disable settings button during recording
+startBtn.addEventListener('click', () => {
+  settingsBtn.disabled = true;
+});
+
+stopBtn.addEventListener('click', () => {
+  settingsBtn.disabled = false;
+});
+
+// Initialize on startup
+loadSettings();

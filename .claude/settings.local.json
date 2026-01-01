@@ -1,9 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
-    ],
-    "deny": [],
-    "ask": []
+      "Bash(wc:*)",
+      "Bash(npm test:*)",
+      "Bash(DEBUG_EXPRESSION=1 npm test:*)",
+      "Bash(ffprobe:*)",
+      "WebSearch",
+      "WebFetch(domain:ffmpeg.org)",
+      "Bash(npm run lint:*)"
+    ]
   }
 }
